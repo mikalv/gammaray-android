@@ -24,7 +24,9 @@
 
 #setup 
 ACLOCAL_AMFLAGS = -I build-aux/m4
-AM_CFLAGS = -Wall -Werror -I$(srcdir)/src/include
+AM_CFLAGS = -Wall -I$(srcdir)/src/include \
+  -I$(srcdir)/libiconv-1.14/include
+AM_LDADD = $(PWD)/libiconv-1.14/lib/.libs/libiconv.a
 
 # distribution
 EXTRA_DIST = LICENSE NOTICE README.md src/include

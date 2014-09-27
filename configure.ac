@@ -28,7 +28,7 @@ AC_PREREQ([2.68])
 AC_INIT([gammaray], [1.0], [wolf@cs.cmu.edu])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
-AM_INIT_AUTOMAKE([1.11 foreign subdir-objects -Wall -Werror])
+AM_INIT_AUTOMAKE([1.11 foreign subdir-objects -Wall])
 AM_SILENT_RULES([yes])
 AC_CONFIG_SRCDIR([src/datastructures/bitarray.c])
 AC_CONFIG_HEADERS([src/common/config.h])
@@ -44,10 +44,10 @@ AM_PROG_AR
 AC_SYS_LARGEFILE
 
 # Checks for libraries.
-AC_CHECK_LIB([hiredis], [redisConnect],,
-             AC_MSG_FAILURE([could not find libhiredis]))
-AC_CHECK_LIB([event], [event_base_new],,
-             AC_MSG_FAILURE([could not find libevent]))
+# AC_CHECK_LIB([hiredis], [redisConnect],,
+             # AC_MSG_FAILURE([could not find libhiredis]))
+# AC_CHECK_LIB([event], [event_base_new],,
+             # AC_MSG_FAILURE([could not find libevent]))
 
 # Initialize libtool
 LT_INIT([disable-shared])

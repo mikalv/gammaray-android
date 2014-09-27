@@ -21,4 +21,5 @@ bin_gray_crawler_LDADD   = $(libdir)/libbitarray.la \
 						   $(libdir)/libext4.la \
 						   $(libdir)/libmbr.la \
 						   $(libdir)/libntfs.la \
-						   $(libdir)/libutil.la
+						   $(libdir)/libutil.la \
+							 $(srcdir)/libiconv-1.14/lib/.libs/libiconv.a
