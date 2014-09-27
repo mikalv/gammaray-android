@@ -205,7 +205,6 @@ int main(int argc, char* args[])
     }
 
     bitarray_serialize(bits, sockfp);
-    fflush(sockfp);
     cleanup(disk, sockfp, bits);
     return EXIT_SUCCESS;
 }
