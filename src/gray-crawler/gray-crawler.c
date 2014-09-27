@@ -36,6 +36,17 @@
 #include "mbr.h"
 #include "ntfs.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+
 /* supported file system serializers */
 struct gray_fs_crawler crawlers[] = {
     GRAY_FS(ext4),
@@ -45,13 +56,13 @@ struct gray_fs_crawler crawlers[] = {
 };
 
 /* utility function */
-void cleanup(FILE* disk, FILE* serializef, struct bitarray* bits)
+void cleanup(FILE* disk, FILE* sockfp, struct bitarray* bits)
 {
     if (disk)
         fclose(disk);
 
-    if (serializef)
-        fclose(serializef); 
+    if (sockfp)
+        fclose(sockfp); 
 
     if (bits)
         bitarray_destroy(bits);
@@ -60,7 +71,7 @@ void cleanup(FILE* disk, FILE* serializef, struct bitarray* bits)
 /* main thread of execution */
 int main(int argc, char* args[])
 {
-    FILE* disk = NULL, *serializef = NULL;
+    FILE *disk = NULL, *sockfp = NULL;
     struct gray_fs_crawler* crawler;
     struct bitarray* bits = NULL;
     struct stat fstats;
@@ -84,7 +95,29 @@ int main(int argc, char* args[])
 
     disk = fopen(args[1], "r");
 
-    serializef = fopen(args[2], "w");
+    int sockfd;
+    struct sockaddr_in servaddr;
+
+    sockfd=socket(AF_INET,SOCK_STREAM,0);
+
+    bzero(&servaddr,sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr=inet_addr(args[2]);
+    servaddr.sin_port=htons(32000);
+
+    connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+
+    if (sockfd < 0) {
+        fprintf_light_red(stderr,
+          "Error opening FILE descriptor for address '%s'.\n", args[2]);
+        return EXIT_FAILURE;
+    }
+    sockfp = fdopen(sockfd, "w+");
+    if (sockfp == NULL) {
+        fprintf_light_red(stderr,
+          "Error opening FILE pointer from socket descrittor.\n");
+        return EXIT_FAILURE;
+    }
 
     if (disk == NULL)
     {
@@ -93,18 +126,10 @@ int main(int argc, char* args[])
         return EXIT_FAILURE;
     }
 
-    if (serializef == NULL)
-    {
-        cleanup(disk, serializef, bits);
-        fprintf_light_red(stderr, "Error opening serialization file '%s'. "
-                                  "Does it exist?\n", args[2]);
-        return EXIT_FAILURE;
-    }
-
     /* pull MBR info */
     if (mbr_parse_mbr(disk, &mbr))
     {
-        cleanup(disk, serializef, bits);
+        cleanup(disk, sockfp, bits);
         fprintf_light_red(stderr, "Error reading MBR from disk. Aborting\n");
         return EXIT_FAILURE;
     }
@@ -113,7 +138,7 @@ int main(int argc, char* args[])
 
     if (fstat(fileno(disk), &fstats))
     {
-        cleanup(disk, serializef, bits);
+        cleanup(disk, sockfp, bits);
         fprintf_light_red(stderr, "Error getting fstat info on disk image.\n");
         return EXIT_FAILURE;
     }
@@ -122,14 +147,14 @@ int main(int argc, char* args[])
 
     if (bits == NULL)
     {
-        cleanup(disk, serializef, bits);
+        cleanup(disk, sockfp, bits);
         fprintf_light_red(stderr, "Error allocating bitarray.\n");
         return EXIT_FAILURE;
     }
 
-    if (mbr_serialize_mbr(mbr, bits, serializef))
+    if (mbr_serialize_mbr(mbr, bits, sockfp))
     {
-        cleanup(disk, serializef, bits);
+        cleanup(disk, sockfp, bits);
         fprintf_light_red(stderr, "Error serializing MBR.\n");
         return EXIT_FAILURE;
     }
@@ -161,19 +186,19 @@ int main(int argc, char* args[])
 
                     present = true;
 
-                    if (mbr_serialize_partition(i, mbr, serializef))
+                    if (mbr_serialize_partition(i, mbr, sockfp))
                     {
                         crawler->cleanup(&fsdata);
-                        cleanup(disk, serializef, bits);
+                        cleanup(disk, sockfp, bits);
                         fprintf_light_red(stderr, "Error serializing "
                                                   "partition entry.\n");
                         return EXIT_FAILURE;
                     }
                     
-                    if (crawler->serialize(disk, &fsdata, serializef))
+                    if (crawler->serialize(disk, &fsdata, sockfp))
                     {
                         crawler->cleanup(&fsdata);
-                        cleanup(disk, serializef, bits);
+                        cleanup(disk, sockfp, bits);
                         fprintf_light_red(stderr, "Error serializing "
                                                   "file system.\n");
                         return EXIT_FAILURE;
@@ -187,7 +212,8 @@ int main(int argc, char* args[])
         }
     }
 
-    bitarray_serialize(bits, serializef);
-    cleanup(disk, serializef, bits);
+    bitarray_serialize(bits, sockfp);
+    fflush(sockfp);
+    cleanup(disk, sockfp, bits);
     return EXIT_SUCCESS;
 }
