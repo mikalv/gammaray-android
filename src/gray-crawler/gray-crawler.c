@@ -33,11 +33,19 @@
 #include "color.h"
 #include "ext4.h"
 #include "gray-crawler.h"
+#include "gpt.h"
 #include "mbr.h"
 #include "ntfs.h"
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
+
+/* support multiple partition table types */
+struct gray_fs_pt_crawler pt_crawlers[] = {
+    GRAY_PT(gpt),
+    GRAY_PT(mbr),
+    {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL} /* guard value */
+};
 
 /* supported file system serializers */
 struct gray_fs_crawler crawlers[] = {
@@ -64,10 +72,12 @@ void cleanup(FILE* disk, FILE* sockfp, struct bitarray* bits)
 int main(int argc, char* args[])
 {
     FILE *disk = NULL, *sockfp = NULL;
+    struct gray_fs_pt_crawler* pt_crawler;
     struct gray_fs_crawler* crawler;
     struct bitarray* bits = NULL;
     struct stat fstats;
-    struct disk_mbr mbr;
+    struct pt ptdata;
+    struct pte ptedata;
     struct fs fsdata;
     bool present;
     int i;
@@ -78,7 +88,7 @@ int main(int argc, char* args[])
     if (argc < 3)
     {
         fprintf_light_red(stderr, "Usage: %s <raw disk file> "
-                                  "<BSON output file>\n", 
+                                  "<BSON output file>\n",
                                   args[0]);
         return EXIT_FAILURE;
     }
@@ -118,15 +128,40 @@ int main(int argc, char* args[])
         return EXIT_FAILURE;
     }
 
-    /* pull MBR info */
-    if (mbr_parse_mbr(disk, &mbr))
+    /* pull MBR/partition table info */
+    pt_crawler = pt_crawlers;
+    present = false;
+
+    while (pt_crawler->pt_name && !present)
+    {
+
+        fprintf_white(stdout, "\nProbing for %s... ",
+                              pt_crawler->pt_name);
+
+        fseek(disk, SEEK_SET, 0);
+        if (pt_crawler->probe(disk, &ptdata))
+        {
+
+            fprintf_white(stdout, "not found.\n");
+        }
+        else
+        {
+            pt_crawler->print(ptdata);
+            present = true;
+            fprintf_light_white(stdout, "found %s partition table!\n",
+                                        pt_crawler->pt_name);
+            break;
+        }
+
+        pt_crawler++;
+    }
+
+    if (!present)
     {
         cleanup(disk, sockfp, bits);
         fprintf_light_red(stderr, "Error reading MBR from disk. Aborting\n");
         return EXIT_FAILURE;
     }
-
-    mbr_print_mbr(mbr);
 
     if (fstat(fileno(disk), &fstats))
     {
@@ -144,17 +179,19 @@ int main(int argc, char* args[])
         return EXIT_FAILURE;
     }
 
-    if (mbr_serialize_mbr(mbr, bits, sockfp))
+    if (pt_crawler->serialize_pt(ptdata, bits, sockfp))
     {
         cleanup(disk, sockfp, bits);
-        fprintf_light_red(stderr, "Error serializing MBR.\n");
+        fprintf_light_red(stderr, "Error serializing PT.\n");
         return EXIT_FAILURE;
     }
 
-    for (i = 0; i < 4; i++) {
+    while (pt_crawler->get_next_partition(ptdata, &ptedata))
+    {
         fsdata = (struct fs) {i, 0, NULL, NULL, NULL};
 
-        fsdata.pt_off = mbr_partition_offset(mbr, i);
+        fsdata.pte = ptedata.pt_num;
+        fsdata.pt_off = ptedata.pt_off;
         fsdata.bits = bits;
 
         if (fsdata.pt_off > 0)
@@ -166,7 +203,7 @@ int main(int argc, char* args[])
 
                 fprintf_white(stdout, "\nProbing for %s... ",
                                       crawler->fs_name);
-                
+
                 if (crawler->probe(disk, &fsdata))
                 {
                     fprintf_white(stdout, "not found.\n");
@@ -178,17 +215,18 @@ int main(int argc, char* args[])
 
                     present = true;
 
-                    if (mbr_serialize_partition(i, mbr, sockfp))
+                    if (pt_crawler->serialize_pte(ptedata, sockfp))
                     {
+                        pt_crawler->cleanup_pte(ptedata);
                         crawler->cleanup(&fsdata);
                         cleanup(disk, sockfp, bits);
                         fprintf_light_red(stderr, "Error serializing "
                                                   "partition entry.\n");
                         return EXIT_FAILURE;
                     }
-                    
                     if (crawler->serialize(disk, &fsdata, sockfp))
                     {
+                        pt_crawler->cleanup_pte(ptedata);
                         crawler->cleanup(&fsdata);
                         cleanup(disk, sockfp, bits);
                         fprintf_light_red(stderr, "Error serializing "
@@ -197,14 +235,16 @@ int main(int argc, char* args[])
                     }
                 }
 
+                /* pt_crawler->cleanup_pte(ptedata); */
                 crawler->cleanup(&fsdata);
-                
+
                 crawler++;
             }
         }
     }
 
     bitarray_serialize(bits, sockfp);
+    pt_crawler->cleanup_pt(ptdata);
     cleanup(disk, sockfp, bits);
     return EXIT_SUCCESS;
 }
