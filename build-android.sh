@@ -25,6 +25,6 @@ if [[ ! -a libiconv-1.14/lib/.libs/libiconv.a ]]; then
   make -j8
 fi
 
-[[ -a configure ]] || ./bootstrap.sh
+[[ -a configure ]] || autoreconf -i
 ./configure --enable-static --host=arm-linux
 make -j8 bin/gray-crawler
