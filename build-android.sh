@@ -4,6 +4,8 @@ die () { echo $*; exit -1; }
 
 set -x
 
+[[ -a configure ]] || ./bootstrap.sh || die "GammaRay bootstrap failed."
+
 if [[ ! -d toolchain ]]; then
   # Using NDK r10b.
   $ANDROID_NDK/build/tools/make-standalone-toolchain.sh \
@@ -36,6 +38,5 @@ if [[ ! -a libiconv-1.14/lib/.libs/libiconv.a ]]; then
   cd ..
 fi
 
-[[ -a configure ]] || autoreconf -i || echo "Warn: nonzero autoreconf."
 ./configure --enable-static --host=arm-linux || die "Configure failed."
 make -j8 bin/gray-crawler || die "Make failed."
