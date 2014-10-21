@@ -1,6 +1,8 @@
 #!/bin/sh
 
-set -x -e
+die () { echo $*; exit -1; }
+
+set -x
 
 if [[ ! -d toolchain ]]; then
   # Using NDK r10b.
@@ -29,11 +31,11 @@ if [[ ! -a libiconv-1.14/lib/.libs/libiconv.a ]]; then
     wget http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
   tar xvfz libiconv-1.14.tar.gz
   cd libiconv-1.14
-  ./configure --enable-static --host=arm-linux
-  make -j8
+  ./configure --enable-static --host=arm-linux || die "Configure failed."
+  make -j8 || die "Make failed."
   cd ..
 fi
 
-[[ -a configure ]] || autoreconf -i
-./configure --enable-static --host=arm-linux
-make -j8 bin/gray-crawler
+[[ -a configure ]] || autoreconf -i || echo "Warn: nonzero autoreconf."
+./configure --enable-static --host=arm-linux || die "Configure failed."
+make -j8 bin/gray-crawler || die "Make failed."
