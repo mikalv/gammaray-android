@@ -1,7 +1,12 @@
 #!/bin/sh
 
+set -x -e
+
 if [[ ! -d toolchain ]]; then
+  # Using NDK r10b.
   $ANDROID_NDK/build/tools/make-standalone-toolchain.sh \
+    --platform=android-18 \
+    --toolchain=arm-linux-androideabi-4.8 \
     --install-dir=$PWD/toolchain
 fi
 
@@ -9,12 +14,15 @@ fi
 pathadd() { PATH="${PATH:+"$PATH:"}$1"; }
 pathadd "$PWD/toolchain/bin"
 command -v arm-linux-androideabi-gcc &> /dev/null || exit -1
-export CC=arm-linux-androideabi-gcc
+export SYSROOT=$PWD/toolchain/sysroot
+export CC="arm-linux-androideabi-gcc --sysroot=$SYSROOT"
 export CXX=arm-linux-androideabi-g++
 export LD=arm-linux-androideabi-ld
 export RANLIB=arm-linux-androideabi-ranlib
 export AR=arm-linux-androideabi-ar
 export CROSS_PREFIX=arm-linux-androideabi-
+export CFLAGS='-march=armv7-a -mfloat-abi=softfp -mfpu=neon'
+export LDFLAGS='-Wl,--fix-cortex-a8'
 
 if [[ ! -a libiconv-1.14/lib/.libs/libiconv.a ]]; then
   [[ -a libiconv-1.14.tar.gz ]] || \
@@ -23,6 +31,7 @@ if [[ ! -a libiconv-1.14/lib/.libs/libiconv.a ]]; then
   cd libiconv-1.14
   ./configure --enable-static --host=arm-linux
   make -j8
+  cd ..
 fi
 
 [[ -a configure ]] || ./bootstrap.sh
