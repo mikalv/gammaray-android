@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 die () { echo $*; exit -1; }
 
@@ -33,7 +33,7 @@ if [[ ! -a libiconv-1.14/lib/.libs/libiconv.a ]]; then
     wget http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
   tar xvfz libiconv-1.14.tar.gz
   cd libiconv-1.14
-  ./configure --enable-static --host=arm-linux || die "Configure failed."
+  gl_cv_header_working_stdint_h=yes ./configure --enable-static --host=arm-linux  || die "Configure failed"
   make -j8 || die "Make failed."
   cd ..
 fi
