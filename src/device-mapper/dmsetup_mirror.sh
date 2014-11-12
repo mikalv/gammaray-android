@@ -1,9 +1,11 @@
 
-sudo losetup /dev/loop5 loop5.ima 
-sudo losetup /dev/loop6 loop6.ima 
-sudo mkfs.ext4 /dev/loop5
+parted loop5.ima unit B print
+
+sudo losetup -o 1048576 /dev/loop5 loop5.ima #Get offset from the Start column after running `parted`
+sudo losetup -o 1048576 /dev/loop6 loop6.ima #Get offset from the Start column after running `parted`
+sudo mkfs.ext4 /dev/loop5 #Run once the first time a *.ima is used.
 sudo dumpe2fs /dev/loop5 | head
-sudo mkfs.ext4 /dev/loop6
+sudo mkfs.ext4 /dev/loop6 #Run once the first time a *.ima is used.
 sudo dumpe2fs /dev/loop6 | head
 
 sudo mount /dev/loop5 /mnt/ ; mount | grep loop5
