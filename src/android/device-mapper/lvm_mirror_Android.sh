@@ -1,7 +1,8 @@
 #!/system/bin/sh
 export LVM_SYSTEM_DIR=/data/gray/lvm/
 
-if [$# - 2]; then 
+if [ $# -ne 2 ]
+then 
 	echo "Example usage: lvm_mirror_Android.sh ram0 ram1"
 	echo "Example usage: lvm_mirror_Android.sh loop0 loop1"
 fi
