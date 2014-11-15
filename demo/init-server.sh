@@ -33,5 +33,4 @@ sudo mkdir -p /tmp/gray-fs
 gray-fs /tmp/gray-fs -d -s disk.raw & &> gray-fs.log
 
 nbd-queuer-test test_ba disk.raw $REDIS_SERVER $REDIS_PORT $REDIS_DB \
-                5368709120 $NBD_SERVER $NBD_PORT n &> queuer-test.log
-
+                5368709120 $NBD_SERVER $NBD_PORT y &> queuer-test.log
