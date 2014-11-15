@@ -5,6 +5,7 @@ if [ $# -ne 2 ]
 then 
 	echo "Example usage: lvm_mirror_Android.sh ram0 ram1"
 	echo "Example usage: lvm_mirror_Android.sh loop0 loop1"
+	exit
 fi
 
 lvm pvcreate /dev/block/$1                
