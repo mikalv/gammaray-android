@@ -2,7 +2,7 @@
 
 # Argument check
 USAGE="setup_demo.sh <folder> <mount device>"
-EXAMPLE_USAGE="setup_demo.sh /sdcard/DCIM/Camera /dev/nbd1"
+EXAMPLE_USAGE="setup_demo.sh /data/media/0/DCIM/Camera /dev/nbd1"
 if [ $# -ne 2 ] 
 then
 	echo $USAGE
