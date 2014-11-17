@@ -23,8 +23,7 @@ pathadd() {
 pathadd $HOME/repos/gammaray-android/bin
 pathadd $HOME/repos/gammaray-android/bin/test
 
-
-pkill gray
+pkill gray || true
 
 gray-crawler disk.raw disk.bson &> crawler.log
 gray-inferencer disk.bson $REDIS_DB disk_test_instance &> inferencer.log &
@@ -33,4 +32,8 @@ sudo mkdir -p /tmp/gray-fs
 gray-fs /tmp/gray-fs -d -s disk.raw & &> gray-fs.log
 
 nbd-queuer-test test_ba disk.raw $REDIS_SERVER $REDIS_PORT $REDIS_DB \
-                5368709120 $NBD_SERVER $NBD_PORT y &> queuer-test.log
+                5368709120 $NBD_SERVER $NBD_PORT y &> queuer-test.log &
+
+sudo nbd-client localhost 30000 /dev/nbd0
+PART=$(sudo kpartx -av /dev/nbd0 | sed -e 's/add map \(\S*\) .*/\1/g' )
+sudo qemu-nbd -p 30001 /dev/mapper/$PART
