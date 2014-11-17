@@ -29,7 +29,7 @@
 #include "color.h"
 #include "nbd.h"
 
-#define USAGE "%s <export name> <Redis IP> <Redis port> <Redis DB> " \
+#define USAGE "%s <export name> <export file> <Redis IP> <Redis port> <Redis DB> " \
 "<Export Size> <NBD Bind IP> <NBD Port> <Old Handshake y|n>\n"
 
 struct nbd_handle
@@ -60,10 +60,15 @@ int main(int argc, char* argv[])
     fprintf_blue(stdout, "nbd-queuer-test program by: Wolfgang Richter "
                          "<wolf@cs.cmu.edu>\n");
 
-    handle = nbd_init_redis(argv[1], argv[2], atoi(argv[3]), atoi(argv[4]),
-                            atoll(argv[5]), argv[6], argv[7],
-                            (strncmp(argv[8], "y", 1) == 0) ||
-                            (strncmp(argv[8], "Y", 1) == 0));
+    handle = nbd_init_both(argv[1], argv[2], argv[3], atoi(argv[4]), atoi(argv[5]),
+                            atoll(argv[6]), argv[7], argv[8],
+                            (strncmp(argv[9], "y", 1) == 0) ||
+                            (strncmp(argv[9], "Y", 1) == 0));
+
+    /* handle = nbd_init_redis(argv[1], argv[2], atoi(argv[3]), atoi(argv[4]), */
+    /*                         atoll(argv[5]), argv[6], argv[7], */
+    /*                         (strncmp(argv[8], "y", 1) == 0) || */
+    /*                         (strncmp(argv[8], "Y", 1) == 0)); */
 
     assert(handle != NULL);
     assert(handle->fd != 0);
