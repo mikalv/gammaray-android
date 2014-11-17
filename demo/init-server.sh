@@ -12,6 +12,7 @@ PART=$(sudo kpartx -av disk.raw | sed -e 's/add map \(\S*\) .*/\1/g' )
 sudo mkfs.ext4 /dev/mapper/$PART
 sudo mkdir -p /tmp/mps
 sudo mount /dev/mapper/$PART /tmp/mps
+read
 sudo su -c 'echo filecontents > /tmp/mps/testfile'
 sudo umount /tmp/mps
 sudo rm -rf /tmp/mps

@@ -812,7 +812,7 @@ struct nbd_handle* nbd_init_both(char* export_name, char* fname, char* redis_ser
     struct evconnlistener* conn = NULL;
     struct redisAsyncContext* redis_c = NULL;
     struct stat st_buf;
-    int fd = NULL;
+    int fd = 0;
 
     /* sanity check */
     if (redis_server == NULL || nodename == NULL || port == NULL ||
