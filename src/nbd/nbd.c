@@ -482,26 +482,23 @@ uint32_t __handle_write(struct nbd_req_header* req, struct nbd_client* client,
 
     assert(fd > 0);
     assert(redis_c != NULL);
-    offset /= 512;
-    printf("Writing 1.\n");
-    assert(redisAsyncCommand(redis_c, &redis_async_callback, NULL,
-                             "LPUSH writequeue %b", &offset,
-                             sizeof(offset)) == REDIS_OK);
-    assert(redisAsyncCommand(redis_c, &redis_async_callback, NULL,
-                             "LPUSH writequeue %b", buf, len) == REDIS_OK);
 
-    printf("Writing 2.\n");
     if (lseek64(fd, offset, SEEK_SET) == (off_t) -1)
         return errno;
 
     while (pos < len)
     {
-        printf("Writing 3.\n");
         if ((ret = write(fd, &(buf[pos]), len)) == (ssize_t) -1)
             return errno;
-        printf("Writing 4.\n");
         pos += ret;
     }
+
+    offset /= 512;
+    assert(redisAsyncCommand(redis_c, &redis_async_callback, NULL,
+                             "LPUSH writequeue %b", &offset,
+                             sizeof(offset)) == REDIS_OK);
+    assert(redisAsyncCommand(redis_c, &redis_async_callback, NULL,
+                             "LPUSH writequeue %b", buf, len) == REDIS_OK);
 
     return 0;
 }

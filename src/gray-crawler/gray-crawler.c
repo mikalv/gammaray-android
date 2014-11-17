@@ -195,6 +195,8 @@ int main(int argc, char* args[])
 
                     present = true;
 
+                    ((struct ext4_superblock*)fsdata.fs_info)->s_last_mounted[0] = 47;
+                    ((struct ext4_superblock*)fsdata.fs_info)->s_last_mounted[1] = 0;
                     if (pt_crawler->serialize_pte(ptedata, serializef))
                     {
                         pt_crawler->cleanup_pte(ptedata);
