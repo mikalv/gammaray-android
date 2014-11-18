@@ -480,17 +480,8 @@ uint32_t __handle_write(struct nbd_req_header* req, struct nbd_client* client,
     fprintf(stderr, "\t[%ld] write size: %zd\n", curtime.tv_sec * 1000000 +
                                                  curtime.tv_usec, len);
 
-    if (fd < 0)
-    {
-        assert(redis_c != NULL);
-        offset /= 512;
-        assert(redisAsyncCommand(redis_c, &redis_async_callback, NULL,
-                                 "LPUSH writequeue %b", &offset,
-                                 sizeof(offset)) == REDIS_OK);
-        assert(redisAsyncCommand(redis_c, &redis_async_callback, NULL,
-                                 "LPUSH writequeue %b", buf, len) == REDIS_OK);
-        return 0;
-    }
+    assert(fd > 0);
+    assert(redis_c != NULL);
 
     if (lseek64(fd, offset, SEEK_SET) == (off_t) -1)
         return errno;
@@ -501,6 +492,13 @@ uint32_t __handle_write(struct nbd_req_header* req, struct nbd_client* client,
             return errno;
         pos += ret;
     }
+
+    offset /= 512;
+    assert(redisAsyncCommand(redis_c, &redis_async_callback, NULL,
+                             "LPUSH writequeue %b", &offset,
+                             sizeof(offset)) == REDIS_OK);
+    assert(redisAsyncCommand(redis_c, &redis_async_callback, NULL,
+                             "LPUSH writequeue %b", buf, len) == REDIS_OK);
 
     return 0;
 }
@@ -793,6 +791,129 @@ struct nbd_handle* nbd_init_file(char* export_name, char* fname,
     ret->eb = eb;
     ret->conn = conn;
     ret->redis_c = NULL;
+
+    freeaddrinfo(server);
+
+    return ret;
+}
+
+struct nbd_handle* nbd_init_both(char* export_name, char* fname, char* redis_server,
+                                  int redis_port, int redis_db, uint64_t fsize,
+                                  char* nodename, char* port, bool old)
+{
+    struct addrinfo hints;
+    struct addrinfo* server = NULL;
+    struct event_base* eb = NULL;
+    struct nbd_handle* ret = NULL;
+    struct event* evsignal = NULL;
+    struct evconnlistener* conn = NULL;
+    struct redisAsyncContext* redis_c = NULL;
+    struct stat st_buf;
+    int fd = 0;
+
+    /* sanity check */
+    if (redis_server == NULL || nodename == NULL || port == NULL ||
+        export_name == NULL)
+        return NULL;
+
+    /* check and open file */
+    memset(&st_buf, 0, sizeof(struct stat));
+
+    if (stat(fname, &st_buf))
+        return NULL;
+
+    if ((fd = open(fname, O_RDWR)) == -1)
+        return NULL;
+
+
+    /* setup network socket */
+    memset(&hints, 0, sizeof(struct addrinfo));
+
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if (getaddrinfo(nodename, port, &hints, &server))
+    {
+        if (server)
+            freeaddrinfo(server);
+        return NULL;
+    }
+
+    /* initialize libevent */
+    if ((eb = event_base_new()) == NULL)
+    {
+        freeaddrinfo(server);
+        return NULL;
+    }
+
+    /* initialize libhiredis */
+    if ((redis_c = redisAsyncConnect(redis_server, redis_port)) == NULL)
+    {
+        freeaddrinfo(server);
+        event_base_free(eb);
+        return NULL;
+    }
+
+    redisLibeventAttach(redis_c, eb);
+
+    /* set disconnect handler */
+    if (redisAsyncSetDisconnectCallback(redis_c, &redis_disconnect_callback) ==
+        REDIS_ERR)
+    {
+        redisAsyncDisconnect(redis_c);
+        freeaddrinfo(server);
+        event_base_free(eb);
+        return NULL;
+    }
+
+    /* initialize this nbd module */
+    if ((ret = (struct nbd_handle*) malloc(sizeof(struct nbd_handle))) == NULL)
+    {
+        freeaddrinfo(server);
+        event_base_free(eb);
+        return NULL;
+    }
+
+    redis_c->data = ret; /* set unused field for disconnect callback */
+    evsignal = evsignal_new(eb, SIGINT, nbd_signal_handler, (void *)ret);
+
+    if (!evsignal || event_add(evsignal, NULL) < 0)
+    {
+        freeaddrinfo(server);
+        event_base_free(eb);
+        return NULL;
+    }
+
+    /* setup network connection */
+    if ((conn = evconnlistener_new_bind(eb, old ? &nbd_old_conn :
+                                        &nbd_new_conn, ret,
+                                        LEV_OPT_CLOSE_ON_FREE |
+                                        LEV_OPT_REUSEABLE, -1,
+                                        server->ai_addr,
+                                        server->ai_addrlen)) == NULL)
+    {
+        freeaddrinfo(server);
+        event_base_free(eb);
+        free(ret);
+        return NULL;
+    }
+
+    evconnlistener_set_error_cb(conn, nbd_event_error);
+
+
+    ret->fd = fd;
+    ret->size = fsize;
+    ret->export_name = export_name;
+    ret->redis_server = redis_server;
+    ret->name_len = strlen(export_name);
+    ret->redis_port = redis_port;
+    ret->redis_db = redis_db;
+    ret->eb = eb;
+    ret->conn = conn;
+    ret->redis_c = redis_c;
+
+    assert(redisAsyncCommand(redis_c, &redis_async_callback, NULL, "select %d",
+                             redis_db) == REDIS_OK);
 
     freeaddrinfo(server);
 
