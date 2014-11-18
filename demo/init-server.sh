@@ -57,6 +57,6 @@ while true; do
   redis-cli flushall
   gray-crawler disk.raw disk.bson &> crawler.log
   gray-inferencer disk.bson $REDIS_DB disk_test_instance &> inferencer.log &
-  sleep 10
+  sleep 20
   pkill gray-inferencer
 done
