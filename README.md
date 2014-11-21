@@ -1,10 +1,11 @@
 # GammaRay Extensions for Android
-This is an educational (not production-ready)
-class project extending the
-[GammaRay](https://github.com/cmusatyalab/gammaray) project
-to mount a cloud-hosted block device on Android.
-GammaRay provides filesystem-level streams of the block device
-operations of the cloud-hosted block device.
+This repository is an educational (not production-ready)
+class project to mount and log writes to a
+remote block device on Android.
+The logging is done with the
+[GammaRay](https://github.com/cmusatyalab/gammaray) project,
+which provides filesystem-level streams of block device
+operations.
 
 # Use Cases
 ## Device Management for Corporate Security Policies.
