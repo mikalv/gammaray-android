@@ -51,7 +51,7 @@ GammaRay provides disk-based
 for virtual machines as shown in the following diagram.
 The block device writes are intercepted and Redis maintains the
 streaming metadata.
-The inference engine infers the filesystem operations that occured
+The inference engine infers the filesystem operations that occurred
 in some time interval.
 
 ![](https://raw.githubusercontent.com/wenluhu/gammaray-android/master/img/GammaRay-Original.png)
